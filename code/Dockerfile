@@ -81,6 +81,8 @@ RUN conda install -n solaris \
 RUN source activate solaris && python -m ipykernel.kernelspec \
     --name solaris --display-name solaris
 
+RUN source activate solaris
+
 # ensure solaris is activated
 # RUN conda activate solaris
 
