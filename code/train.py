@@ -9,16 +9,21 @@ from sn7.sn7_baseline_prep_funcs import map_wrapper, make_geojsons_and_masks
 sys.path.insert(0, 'solaris')
 sol = __import__('solaris')
 
+
 # Dataset location (edit as needed)
 root_dir = sys.argv[1]
+
+# %% ============================
+# Data Prep
+# ===============================
 
 # Create Training Masks
 # Multi-thread to increase speed
 # We'll only make a 1-channel mask for now, but Solaris supports a multi-channel mask as well, see
 #     https://github.com/CosmiQ/solaris/blob/master/docs/tutorials/notebooks/api_masks_tutorial.ipynb
 
-aois = sorted([f for f in os.listdir(os.path.join(root_dir, 'train'))
-               if os.path.isdir(os.path.join(root_dir, 'train', f))])
+aois = sorted([f for f in os.listdir(os.path.join(root_dir))
+               if os.path.isdir(os.path.join(root_dir, f))])
 n_threads = 10
 params = [] 
 make_fbc = False
@@ -26,10 +31,10 @@ make_fbc = False
 input_args = []
 for i, aoi in enumerate(aois):
     print(i, "aoi:", aoi)
-    im_dir = os.path.join(root_dir, 'train', aoi, 'images_masked/')
-    json_dir = os.path.join(root_dir, 'train', aoi, 'labels_match/')
-    out_dir_mask = os.path.join(root_dir, 'train', aoi, 'masks/')
-    out_dir_mask_fbc = os.path.join(root_dir, 'train', aoi, 'masks_fbc/')
+    im_dir = os.path.join(root_dir, aoi, 'images_masked/')
+    json_dir = os.path.join(root_dir, aoi, 'labels_match/')
+    out_dir_mask = os.path.join(root_dir, aoi, 'masks/')
+    out_dir_mask_fbc = os.path.join(root_dir, aoi, 'masks_fbc/')
     os.makedirs(out_dir_mask, exist_ok=True)
     if make_fbc:
         os.makedirs(out_dir_mask_fbc, exist_ok=True)
@@ -66,44 +71,32 @@ with multiprocessing.Pool(n_threads) as pool:
 # Make dataframe csvs for train/test
 
 out_dir = 'csvs/'
-pops = ['train']
 os.makedirs(out_dir, exist_ok=True)
 
-for pop in pops: 
-    d = os.path.join(root_dir, pop)
-    outpath = os.path.join(out_dir, 'sn7_baseline_' + pop + '_df.csv')
-    im_list, mask_list = [], []
-    subdirs = sorted([f for f in os.listdir(d) if os.path.isdir(os.path.join(d, f))])
-    for subdir in subdirs:
-        
-        if pop == 'train':
-            im_files = [os.path.join(d, subdir, 'images_masked', f)
-                    for f in sorted(os.listdir(os.path.join(d, subdir, 'images_masked')))
-                    if f.endswith('.tif') and os.path.exists(os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif'))]
-            mask_files = [os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif')
-                      for f in sorted(os.listdir(os.path.join(d, subdir, 'images_masked')))
-                      if f.endswith('.tif') and os.path.exists(os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif'))]
-            im_list.extend(im_files)
-            mask_list.extend(mask_files)
+d = root_dir
+outpath = os.path.join(out_dir, 'sn7_baseline_train_df.csv')
+im_list, mask_list = [], []
+subdirs = sorted([f for f in os.listdir(d) if os.path.isdir(os.path.join(d, f))])
+for subdir in subdirs:
     
-        elif pop == 'test_public':
-            im_files = [os.path.join(d, subdir, 'images_masked', f)
-                    for f in sorted(os.listdir(os.path.join(d, subdir, 'images_masked')))
-                    if f.endswith('.tif')]
-            im_list.extend(im_files)
+    im_files = [os.path.join(d, subdir, 'images_masked', f)
+            for f in sorted(os.listdir(os.path.join(d, subdir, 'images_masked')))
+            if f.endswith('.tif') and os.path.exists(os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif'))]
+    mask_files = [os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif')
+                for f in sorted(os.listdir(os.path.join(d, subdir, 'images_masked')))
+                if f.endswith('.tif') and os.path.exists(os.path.join(d, subdir, 'masks', f.split('.')[0] + '_Buildings.tif'))]
+    im_list.extend(im_files)
+    mask_list.extend(mask_files)
 
-    # save to dataframes
-    # print("im_list:", im_list)
-    # print("mask_list:", mask_list)
-    if pop == 'train':
-        df = pd.DataFrame({'image': im_list, 'label': mask_list})
-    elif pop == 'test_public':
-        df = pd.DataFrame({'image': im_list})
-    df.to_csv(outpath, index=False)
-    print(pop, "len df:", len(df))
-    print("output csv:", outpath)
+df = pd.DataFrame({'image': im_list, 'label': mask_list})
+df.to_csv(outpath, index=False)
+print("train len df:", len(df))
+print("output csv:", outpath)
 
 
+# %% ============================
+# Training
+# ===============================
 
 config_path = 'yml/sn7_hrnet_train.yml'
 config = sol.utils.config.parse(config_path)
