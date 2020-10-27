@@ -2,9 +2,12 @@ import skimage.io as sio
 from scipy import ndimage
 import cv2
 import os
+import sys
 from tqdm import tqdm
 import numpy as np
 
+sys.path.insert(0, 'solaris')
+sol = __import__('solaris')
 
 def listdirfull(path):
   return sorted([os.path.join(path, d) for d in os.listdir(path)])

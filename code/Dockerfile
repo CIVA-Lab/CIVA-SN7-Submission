@@ -87,7 +87,25 @@ RUN source activate solaris && python -m ipykernel.kernelspec \
 # Need imagecodecs for Planet files
 RUN pip install imagecodecs
 
-# open ports for jupyterlab and tensorboard
-EXPOSE 8888 6006
+# Create a /work directory within the container, copy everything from the
+# build directory and switch there.
+RUN mkdir /work
+COPY . /work
+WORKDIR /work
 
-RUN ["/bin/bash"]
+# Make sure your build script is executable. Generally, always check that 
+# all your scripts are made executable, forgetting this is a common error. 
+# Another frequent error is having Windows style line endings in .sh files. 
+RUN chmod +x build.sh
+RUN ./build.sh
+
+# Again, test and train scripts should be executable within the container.
+RUN chmod +x test.sh
+RUN chmod +x train.sh
+
+# Don't add any CMD or ENTRYPOINT!
+
+# # open ports for jupyterlab and tensorboard
+# EXPOSE 8888 6006
+
+# RUN ["/bin/bash"]
