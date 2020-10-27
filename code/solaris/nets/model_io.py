@@ -1,6 +1,7 @@
 import os
 from tensorflow import keras
 import torch
+torch.manual_seed(0)
 from warnings import warn
 import requests
 import numpy as np

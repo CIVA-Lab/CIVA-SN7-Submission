@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(0)
 from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np

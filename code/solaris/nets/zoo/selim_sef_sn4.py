@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(0)
 from torch import nn
 import torch.nn.functional as F
 from functools import partial

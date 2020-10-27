@@ -1,6 +1,7 @@
 """Wrappers for training optimizers."""
 import math
 import torch
+torch.manual_seed(0)
 from tensorflow import keras
 
 

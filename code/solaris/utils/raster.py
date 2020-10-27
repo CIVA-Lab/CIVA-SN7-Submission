@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import tensorflow as tf
 
+torch.manual_seed(0)
 
 def reorder_axes(arr, target='tensorflow'):
     """Check order of axes in an array or tensor and convert to desired format.

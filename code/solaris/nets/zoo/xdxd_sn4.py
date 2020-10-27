@@ -1,5 +1,6 @@
 import os
 import torch
+torch.manual_seed(0)
 from torch import nn
 from torchvision.models import vgg16
 

@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(0)
 from torch import nn
 import torch._utils
 import numpy as np

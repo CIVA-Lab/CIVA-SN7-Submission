@@ -9,6 +9,7 @@ from .datagen import InferenceTiler
 from ..raster.image import stitch_images, create_multiband_geotiff
 from ..utils.core import get_data_paths
 
+torch.manual_seed(0)
 
 class Inferer(object):
     """Object for training `solaris` models using PyTorch or Keras."""

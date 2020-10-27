@@ -3,7 +3,7 @@ from tensorflow import keras
 from tensorflow.keras.callbacks import Callback
 from .torch_callbacks import torch_callback_dict
 import torch
-
+torch.manual_seed(0)
 
 def get_callbacks(framework, config):
     """Load callbacks based on a config file for a specific framework.

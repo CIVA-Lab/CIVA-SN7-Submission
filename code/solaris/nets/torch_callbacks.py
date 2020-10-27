@@ -4,7 +4,7 @@ import os
 import numpy as np
 from .metrics import metric_dict
 import torch
-
+torch.manual_seed(0)
  
 class TorchEarlyStopping(object):
     """Tracks if model training should stop based on rate of improvement.

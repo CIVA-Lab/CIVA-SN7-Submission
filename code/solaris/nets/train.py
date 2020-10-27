@@ -11,6 +11,7 @@ from .torch_callbacks import TorchEarlyStopping, TorchTerminateOnNaN
 from .torch_callbacks import TorchModelCheckpoint
 from .metrics import get_metrics
 import torch
+torch.manual_seed(0)
 from torch.optim.lr_scheduler import _LRScheduler
 import tensorflow as tf
 

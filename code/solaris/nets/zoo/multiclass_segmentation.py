@@ -1,4 +1,5 @@
 import torch
+torch.manual_seed(0)
 from torch import nn
 from torchvision.models import vgg11, vgg16, resnet34
 
