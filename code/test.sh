@@ -1,1 +1,2 @@
-java -cp bin sample.submission.Tester $1 $2 model/dummy-model.txt
+python infer.py $1 
+python solution.py $2 
