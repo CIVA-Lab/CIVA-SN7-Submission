@@ -1,1 +1,1 @@
-python train.py $1 
+CUDA_VISIBLE_DEVICES=0 python train.py $1 
