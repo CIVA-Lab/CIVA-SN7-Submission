@@ -1,6 +1,3 @@
-
-# im_top_dir = '/local_data/sn7/aws_download/test_public'
-
 from shapely.ops import cascaded_union
 import matplotlib.pyplot as plt
 import geopandas as gpd
@@ -21,9 +18,11 @@ import solaris as sol
 from solaris.utils.core import _check_gdf_load
 from solaris.raster.image import create_multiband_geotiff 
 
+config = sol.utils.config.parse('yml/sn7_hrnet_infer.yml')
+
 # Set prediction and image directories (edit appropriately)
+pred_top_dir = '/'.join(config['inference']['output_dir'].split('/')[:-1])
 name = 'solution'
-pred_top_dir = 'data'
 csvname = f'{name}.csv'
 
 # import from data_postproc_funcs
