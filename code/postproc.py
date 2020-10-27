@@ -1,10 +1,16 @@
 import skimage.io as sio
 from scipy import ndimage
+from skimage.morphology import extrema
+from skimage.measure import label
+from skimage.segmentation import watershed
+from skimage.morphology import thin
+
 import cv2
 import os
 import sys
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 
 sys.path.insert(0, 'solaris')
 sol = __import__('solaris')
@@ -18,7 +24,47 @@ def to_uint8(mask):
   """
   return (255 * (mask > 0)).astype('uint8')
 
-import pandas as pd
+def persistence(unet_output):
+
+    # unet_output: a list of masks: unet distance + hyThresh + median_filter5 + persistence output masks
+    unet_output_np = np.asarray(unet_output)
+
+    h = 2
+    mask_thresh = 0
+
+    sum_img = []
+    for i, img in enumerate(unet_output_np):
+        img = img > 0
+        img = img.astype(int)
+        if i == 0:
+            sum_img = img
+        else:
+            sum_img = sum_img + img
+
+    # find peaks using persistence of whole data cube
+    h_maxima = extrema.h_maxima(sum_img, h)
+    label_h_maxima = label(h_maxima)
+
+    # use peaks and summed images to get watershed separation line
+    mask = sum_img > mask_thresh
+    distance = ndimage.distance_transform_edt(mask)
+    labels = watershed(-distance, label_h_maxima, watershed_line=True)
+    split_line = labels == 0
+    split_line = split_line.astype(int)
+
+    # split_line = thin(split_line)
+
+    split_line = np.where(sum_img == 0, 0, split_line)
+
+    new_img = []
+    for i, img in enumerate(unet_output_np):
+        split_img = img > 0
+        split_img = split_img.astype(int)
+        split_img = np.where(split_line == 1, 0, split_img)
+        split_img = split_img * 255
+        new_img.append(split_img)
+
+    return new_img
 
 config = sol.utils.config.parse('yml/sn7_hrnet_infer.yml')
 pred_top_dir = '/'.join(config['inference']['output_dir'].split('/')[:-1])
@@ -53,3 +99,37 @@ for inp_files, out_files in zip(inp_files_list, out_files_list):
 
         for im, f in zip(ims, ofiles):
             sio.imsave(f, im)
+
+
+unet_persis_path = pred_top_dir + '/grouped'
+save_path = pred_top_dir + '/grouped'
+
+aois = sorted([f for f in os.listdir(os.path.join(unet_persis_path)) if os.path.isdir(
+    os.path.join(unet_persis_path, f))])
+
+star_time = time.time()
+for aoi in aois:
+    print(aoi)
+    # ============ read images ============
+    unet_persis_img_path = sorted([f for f in os.listdir(os.path.join(
+        unet_persis_path, aoi, 'masks')) if f.endswith('tif')])
+    unet_persis_img_list = []
+    for _, unet_per_img_path in enumerate(unet_persis_img_path):
+        unet_per_img_path = os.path.join(
+            unet_persis_path, aoi, 'masks', unet_per_img_path)
+        unet_per_img = cv2.imread(unet_per_img_path, -1)
+        unet_persis_img_list.append(unet_per_img)
+
+    # ============ main function ============
+    # hrnet_persis_img is one persistence image of one data cube
+    # unet_persis_img_list is a list of images of that data cube
+    # output [new_unet_imgs] is 0/255 masks list
+    new_unet_imgs = persistence(unet_persis_img_list)
+
+    # ============ save images ============
+    for i, unet_per_img_path in enumerate(unet_persis_img_path):
+        save_imgs_path = os.path.join(
+            save_path, aoi, 'masks', unet_per_img_path)
+        os.makedirs(os.path.join(save_path, aoi,
+                                 'masks'), exist_ok=True)
+        cv2.imwrite(save_imgs_path, new_unet_imgs[i].astype(np.uint8))

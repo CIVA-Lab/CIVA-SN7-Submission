@@ -23,7 +23,7 @@ data_specs:
   val_holdout_frac: 0.1
   data_workers:
 
-training_data_csv: 'csvs/sn7_baseline_train_df.csv'
+training_data_csv: '/wdata/csvs/sn7_baseline_train_df.csv'
 validation_data_csv:
 inference_data_csv:
 
@@ -79,7 +79,7 @@ training:
     early_stopping:
         patience: 24
     model_checkpoint:
-      filepath: 'models/hrnet/hrnet_best.pth'
+      filepath: '/wdata/models/hrnet/hrnet_best.pth'
       monitor: val_loss
     lr_schedule:
       schedule_type: arbitrary
