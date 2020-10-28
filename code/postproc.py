@@ -107,7 +107,6 @@ save_path = pred_top_dir + '/grouped'
 aois = sorted([f for f in os.listdir(os.path.join(unet_persis_path)) if os.path.isdir(
     os.path.join(unet_persis_path, f))])
 
-star_time = time.time()
 for aoi in aois:
     print(aoi)
     # ============ read images ============
