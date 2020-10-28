@@ -1,4 +1,4 @@
-conda activate solaris
+source activate solaris
 python infer.py $1 
 python postproc.py $1 
 python solution.py $2 

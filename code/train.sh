@@ -1,2 +1,2 @@
-conda activate solaris
+source activate solaris
 python train.py $1 
