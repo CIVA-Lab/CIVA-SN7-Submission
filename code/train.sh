@@ -1,2 +1,4 @@
 source activate solaris
-python train.py $1 
+mkdir /wdata/train
+cp $1 /wdata/train
+python train.py /wdata/data/`ls /wdata/data`
