@@ -13,6 +13,10 @@ sol = __import__('solaris')
 # Dataset location (edit as needed)
 root_dir = sys.argv[1]
 
+# Load config
+config_path = 'yml/sn7_hrnet_train.yml'
+config = sol.utils.config.parse(config_path)
+
 # %% ============================
 # Data Prep
 # ===============================
@@ -69,12 +73,11 @@ with multiprocessing.Pool(n_threads) as pool:
 
 
 # Make dataframe csvs for train/test
-
-out_dir = 'csvs/'
-os.makedirs(out_dir, exist_ok=True)
+out_path = config['training_data_csv']
+os.makedirs('/'.join(out_path.split('/')[:-1]), exist_ok=True)
 
 d = root_dir
-outpath = os.path.join(out_dir, 'sn7_baseline_train_df.csv')
+outpath = os.path.join(out_path)
 im_list, mask_list = [], []
 subdirs = sorted([f for f in os.listdir(d) if os.path.isdir(os.path.join(d, f))])
 for subdir in subdirs:
@@ -97,9 +100,6 @@ print("output csv:", outpath)
 # %% ============================
 # Training
 # ===============================
-
-config_path = 'yml/sn7_hrnet_train.yml'
-config = sol.utils.config.parse(config_path)
 
 # make model output dir
 os.makedirs(os.path.dirname(config['training']['model_dest_path']), exist_ok=True)

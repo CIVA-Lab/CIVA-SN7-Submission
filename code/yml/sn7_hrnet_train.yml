@@ -6,7 +6,7 @@ infer: false
 
 pretrained: false
 nn_framework: torch
-batch_size: 16
+batch_size: 3
 
 data_specs:
   width: 512
@@ -87,7 +87,7 @@ training:
         milestones:
           - 200
         gamma: 0.1
-  model_dest_path: 'models/hrnet/hrnet_final.pth'
+  model_dest_path: '/wdata/models/hrnet/hrnet_final.pth'
   verbose: true
 
 inference:
