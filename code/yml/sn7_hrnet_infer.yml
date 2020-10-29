@@ -93,4 +93,4 @@ training:
 inference:
   window_step_size_x:
   window_step_size_y:
-  output_dir: '/wdata/data/raw'
+  output_dir: '/wdata/data/public_test/raw'
