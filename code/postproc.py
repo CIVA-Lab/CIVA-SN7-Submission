@@ -1,6 +1,6 @@
 import skimage.io as sio
 from scipy import ndimage
-from skimage.morphology import extrema
+from skimage.morphology import extrema, h_maxima, reconstruction, local_maxima, thin
 from skimage.measure import label
 from skimage.segmentation import watershed
 from skimage.morphology import thin
@@ -15,14 +15,17 @@ import pandas as pd
 sys.path.insert(0, 'solaris')
 sol = __import__('solaris')
 
+
 def listdirfull(path):
-  return sorted([os.path.join(path, d) for d in os.listdir(path)])
+    return sorted([os.path.join(path, d) for d in os.listdir(path)])
+
 
 def to_uint8(mask):
-  """
-    mask: mask or heatmap
-  """
-  return (255 * (mask > 0)).astype('uint8')
+    """
+      mask: mask or heatmap
+    """
+    return (255 * (mask > 0)).astype('uint8')
+
 
 def persistence(unet_output):
 
@@ -41,14 +44,13 @@ def persistence(unet_output):
         else:
             sum_img = sum_img + img
 
-    # find peaks using persistence of whole data cube
-    h_maxima = extrema.h_maxima(sum_img, h)
-    label_h_maxima = label(h_maxima)
-
+    h_maxima_output = reconstruction(
+        sum_img-h, sum_img, method='dilation', selem=np.ones((3, 3), dtype=int), offset=None)
+    region_max = local_maxima(h_maxima_output, connectivity=2)
+    label_h_maxima = label(region_max, connectivity=2)
     # use peaks and summed images to get watershed separation line
-    mask = sum_img > mask_thresh
-    distance = ndimage.distance_transform_edt(mask)
-    labels = watershed(-distance, label_h_maxima, watershed_line=True)
+    labels = watershed(-sum_img, label_h_maxima,
+                       watershed_line=True, connectivity=2)
     split_line = labels == 0
     split_line = split_line.astype(int)
 
@@ -66,12 +68,15 @@ def persistence(unet_output):
 
     return new_img
 
+
 config = sol.utils.config.parse('yml/sn7_hrnet_infer.yml')
 pred_top_dir = '/'.join(config['inference']['output_dir'].split('/')[:-1])
 test_data_dir = sys.argv[1]
 
-out_dirs = [os.path.join(d, 'masks') for d in listdirfull(pred_top_dir + '/grouped')] 
-inp_dirs = [os.path.join(d, 'images_masked') for d in listdirfull(test_data_dir)] 
+out_dirs = [os.path.join(d, 'masks')
+            for d in listdirfull(pred_top_dir + '/grouped')]
+inp_dirs = [os.path.join(d, 'images_masked')
+            for d in listdirfull(test_data_dir)]
 
 
 out_files_list = [listdirfull(d) for d in out_dirs]
@@ -86,12 +91,11 @@ for inp_files, out_files in zip(inp_files_list, out_files_list):
         os.makedirs(out_dir, exist_ok=True)
 
         ims = np.stack([sio.imread(f) for f in out_files])
-        masks = np.stack([sio.imread(f)[:,:,3]/255 for f in inp_files])
+        masks = np.stack([sio.imread(f)[:, :, 3]/255 for f in inp_files])
         ims = ndimage.median_filter(ims, size=(k, 1, 1))
         ims = ims * masks
         # print(ims.shape)
 
-        
         # preparing file names list
         file_names = [f.split('/')[-1] for f in out_files]
         ofiles = [os.path.join(out_dir, f) for f in file_names]
