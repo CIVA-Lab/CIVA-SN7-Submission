@@ -131,7 +131,9 @@ _ = pool.map(map_wrapper, params)
 out_csv_path = sys.argv[1]
 prop_file = out_csv_path
 
-os.makedirs('/'.join(prop_file.split('/')[:-1]), exist_ok=True)
+final_out_dir = '/'.join(prop_file.split('/')[:-1])
+if final_out_dir != '':
+    os.makedirs(final_out_dir, exist_ok=True)
 
 aoi_dirs = sorted([os.path.join(pred_top_dir, 'grouped', aoi, 'pred_jsons_match') \
                    for aoi in os.listdir(os.path.join(pred_top_dir, 'grouped')) \
