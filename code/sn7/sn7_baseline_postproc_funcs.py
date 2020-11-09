@@ -42,13 +42,17 @@ def multithread_polys(param):
     [pred_image, min_area, output_path_pred, output_type, 
              bg_threshold, simplify] = param
     print("output_pred:", os.path.basename(output_path_pred))
-    sol.vector.mask.mask_to_poly_geojson(pred_image, 
-                                         min_area=min_area, 
-                                         output_path=output_path_pred,
-                                         output_type=output_type,
-                                         bg_threshold=bg_threshold,
-                                         simplify=simplify)
-                                         
+    try:
+        sol.vector.mask.mask_to_poly_geojson(pred_image, 
+                                            min_area=min_area, 
+                                            output_path=output_path_pred,
+                                            output_type=output_type,
+                                            bg_threshold=bg_threshold,
+                                            simplify=simplify)
+    except:
+        print("Missed frame: ", os.path.basename(output_path_pred))
+        pass   
+                             
     
 def calculate_iou(pred_poly, test_data_GDF):
     """Get the best intersection over union for a predicted polygon.

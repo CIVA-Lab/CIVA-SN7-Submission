@@ -28,44 +28,37 @@ def to_uint8(mask):
 
 
 def persistence(unet_output):
-
     # unet_output: a list of masks: unet distance + hyThresh + median_filter5 + persistence output masks
     unet_output_np = np.asarray(unet_output)
-
     h = 2
     mask_thresh = 0
 
     sum_img = []
     for i, img in enumerate(unet_output_np):
-        img = img > 0
-        img = img.astype(int)
+        # img = img > 0
+        # img = img.astype(int)
         if i == 0:
             sum_img = img
         else:
             sum_img = sum_img + img
-
-    h_maxima_output = reconstruction(
-        sum_img-h, sum_img, method='dilation', selem=np.ones((3, 3), dtype=int), offset=None)
+    
+    h_maxima_output = reconstruction(sum_img-h, sum_img, method='dilation', selem=np.ones((3,3), dtype=int), offset=None)
     region_max = local_maxima(h_maxima_output, connectivity=2)
     label_h_maxima = label(region_max, connectivity=2)
     # use peaks and summed images to get watershed separation line
-    labels = watershed(-sum_img, label_h_maxima,
-                       watershed_line=True, connectivity=2)
+    labels = watershed(-sum_img, label_h_maxima, watershed_line=True, connectivity=2)
     split_line = labels == 0
     split_line = split_line.astype(int)
-
     # split_line = thin(split_line)
-
-    split_line = np.where(sum_img == 0, 0, split_line)
-
+    split_line = np.where(sum_img==0, 0, split_line)
     new_img = []
     for i, img in enumerate(unet_output_np):
         split_img = img > 0
         split_img = split_img.astype(int)
-        split_img = np.where(split_line == 1, 0, split_img)
+        split_img = np.where(split_line==1, 0, split_img)
         split_img = split_img * 255
         new_img.append(split_img)
-
+    
     return new_img
 
 
