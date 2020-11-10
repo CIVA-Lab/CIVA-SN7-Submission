@@ -28,7 +28,7 @@ csvname = f'{name}.csv'
 # import from data_postproc_funcs
 from sn7.sn7_baseline_postproc_funcs import map_wrapper, multithread_polys, \
         calculate_iou, track_footprint_identifiers, \
-        sn7_convert_geojsons_to_csv
+        sn7_convert_geojsons_to_csv, track_footprint_identifiers_twostep
 
 # Get all geoms for all aois (mult-threaded)
 
@@ -116,7 +116,7 @@ for aoi in aois:
             else:
                 pass
 
-    params.append([track_footprint_identifiers, json_dir,  out_dir, min_iou, 
+    params.append([track_footprint_identifiers_twostep, json_dir,  out_dir, min_iou, 
                    iou_field, id_field, reverse_order, verbose, super_verbose])    
 
 print("Len params:", len(params))
