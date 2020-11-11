@@ -133,3 +133,6 @@ dmypy.json
 
 solution/
 code/csvs/*
+
+*.tif
+*.geojson
