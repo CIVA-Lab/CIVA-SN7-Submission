@@ -27,8 +27,7 @@ csvname = f'{name}.csv'
 
 # import from data_postproc_funcs
 from sn7.sn7_baseline_postproc_funcs import map_wrapper, multithread_polys, \
-        calculate_iou, track_footprint_identifiers \
-        sn7_convert_geojsons_to_csv
+        calculate_iou, track_footprint_identifiers, sn7_convert_geojsons_to_csv
 
 # Get all geoms for all aois (mult-threaded)
 
