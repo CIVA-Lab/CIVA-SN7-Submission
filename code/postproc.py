@@ -28,6 +28,7 @@ def to_uint8(mask):
 
 
 def persistence(unet_output):
+
     # unet_output: a list of masks: unet distance + hyThresh + median_filter5 + persistence output masks
     unet_output_np = np.asarray(unet_output)
     h = 2
@@ -35,31 +36,41 @@ def persistence(unet_output):
 
     sum_img = []
     for i, img in enumerate(unet_output_np):
+        # Use confidence map instead of Binary mask.
         # img = img > 0
         # img = img.astype(int)
         if i == 0:
             sum_img = img
         else:
             sum_img = sum_img + img
-    
-    h_maxima_output = reconstruction(sum_img-h, sum_img, method='dilation', selem=np.ones((3,3), dtype=int), offset=None)
+
+    h_maxima_output = reconstruction(
+        sum_img-h, sum_img, method='dilation', selem=np.ones((3, 3), dtype=int), offset=None)
     region_max = local_maxima(h_maxima_output, connectivity=2)
     label_h_maxima = label(region_max, connectivity=2)
     # use peaks and summed images to get watershed separation line
-    labels = watershed(-sum_img, label_h_maxima, watershed_line=True, connectivity=2)
+    labels = watershed(-sum_img, label_h_maxima,
+                       watershed_line=True, connectivity=2)
     split_line = labels == 0
+
     split_line = split_line.astype(int)
+
+    watershed_label = label((1 - split_line), connectivity=2)
+
     # split_line = thin(split_line)
-    split_line = np.where(sum_img==0, 0, split_line)
+    split_line = np.where(sum_img == 0, 0, split_line)
+
     new_img = []
+
     for i, img in enumerate(unet_output_np):
         split_img = img > 0
         split_img = split_img.astype(int)
-        split_img = np.where(split_line==1, 0, split_img)
-        split_img = split_img * 255
+        split_img = np.where(split_line == 1, 0, split_img)
+        split_img = split_img * watershed_label
         new_img.append(split_img)
-    
+
     return new_img
+
 
 
 config = sol.utils.config.parse('yml/sn7_hrnet_infer.yml')
@@ -115,7 +126,7 @@ for aoi in aois:
             unet_persis_path, aoi, 'masks', unet_per_img_path)
         unet_per_img = cv2.imread(unet_per_img_path, -1)
         unet_persis_img_list.append(unet_per_img)
-
+        
     # ============ main function ============
     # hrnet_persis_img is one persistence image of one data cube
     # unet_persis_img_list is a list of images of that data cube
@@ -126,6 +137,7 @@ for aoi in aois:
     for i, unet_per_img_path in enumerate(unet_persis_img_path):
         save_imgs_path = os.path.join(
             save_path, aoi, 'masks', unet_per_img_path)
-        os.makedirs(os.path.join(save_path, aoi,
+        os.makedirs(os.path.join(save_path, aoi, 
                                  'masks'), exist_ok=True)
-        cv2.imwrite(save_imgs_path, new_unet_imgs[i].astype(np.uint8))
+        # cv2.imwrite(save_imgs_path, new_unet_imgs[i].astype(np.uint8))
+        sio.imsave(save_imgs_path, new_unet_imgs[i])

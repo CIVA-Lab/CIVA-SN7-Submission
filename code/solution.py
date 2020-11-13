@@ -5,127 +5,114 @@ import multiprocessing
 import pandas as pd
 import numpy as np
 import skimage.io
-import tqdm
+from tqdm import tqdm
 import glob
 import math
 import gdal
 import time
 import sys
 import os
-
+import concurrent.futures
+import skimage.io as sio
 # matplotlib.use('Agg') # non-interactive
-import solaris as sol
+sys.path.insert(0, 'solaris')
+sol = __import__('solaris')
+
 from solaris.utils.core import _check_gdf_load
 from solaris.raster.image import create_multiband_geotiff 
 
 config = sol.utils.config.parse('yml/sn7_hrnet_infer.yml')
-
-# Set prediction and image directories (edit appropriately)
 pred_top_dir = '/'.join(config['inference']['output_dir'].split('/')[:-1])
-name = 'solution'
-csvname = f'{name}.csv'
+masks_dir = os.path.join(pred_top_dir, 'grouped')
 
-# import from data_postproc_funcs
-from sn7.sn7_baseline_postproc_funcs import map_wrapper, multithread_polys, \
-        calculate_iou, track_footprint_identifiers, sn7_convert_geojsons_to_csv
 
-# Get all geoms for all aois (mult-threaded)
+def listdirfull(path):
+  return sorted([os.path.join(path, d) for d in os.listdir(path)])
 
-min_area = 3.5   # in pixels (4 is standard)
-simplify = False
-bg_threshold = 0.5
-output_type = 'geojson'
-aois = sorted([f for f in os.listdir(os.path.join(pred_top_dir, 'grouped')) if os.path.isdir(os.path.join(pred_top_dir, 'grouped', f))])
+def read_data_cube(img_dir, type="tif", return_names=False):
+    img_paths = [f for f in listdirfull(img_dir) if f.endswith('.tif')]
+    imgs = np.stack([sio.imread(f) for f in img_paths], axis=0)
+    if return_names:
+        filenames = [p.split('/')[-1] for p in img_paths]
+        return filenames, imgs
+    else:
+        return imgs
 
-# set params
-params = []
-for i, aoi in enumerate(aois):
-    print(i, "/", len(aois), aoi)   
-    outdir = os.path.join(pred_top_dir, 'grouped', aoi, 'pred_jsons')
-    os.makedirs(outdir, exist_ok=True)
-    pred_files = sorted([os.path.join(pred_top_dir, 'grouped', aoi, 'masks', f)
-                for f in sorted(os.listdir(os.path.join(pred_top_dir, 'grouped', aoi, 'masks')))
-                if f.endswith('.tif')])
-    for j, p in enumerate(pred_files):
-        name = os.path.basename(p)
-        # print(i, j, name)
-        output_path_pred = os.path.join(outdir,  name.split('.tif')[0] + '.geojson')
-        # get pred geoms
-        if not os.path.exists(output_path_pred):
-            pred_image = skimage.io.imread(p)#[:,:,0]
-            params.append([pred_image, min_area, output_path_pred,
-                          output_type, bg_threshold, simplify])        
-
-print("Execute!")
-print("len params:", len(params))
-n_threads = 20
-pool = multiprocessing.Pool(n_threads)
-_ = pool.map(multithread_polys, params)
-
-# This takes awhile, so multi-thread it
-
-min_iou = 0.001
-iou_field = 'iou_score'
-id_field = 'Id'
-reverse_order = False
-verbose = True
-super_verbose = False
-n_threads = 10
-
-json_dir_name = 'pred_jsons/'
-out_dir_name = 'pred_jsons_match/'
-aois = sorted([f for f in os.listdir(os.path.join(pred_top_dir, 'grouped')) 
-               if os.path.isdir(os.path.join(pred_top_dir, 'grouped', f))])
-print("aois:", aois)
-
-print("Gather data for matching...")
-params = []
-for aoi in aois:
-    print(aoi)
-    json_dir = os.path.join(pred_top_dir, 'grouped', aoi, json_dir_name)
-    out_dir = os.path.join(pred_top_dir, 'grouped', aoi, out_dir_name)
+def dir_to_poly(mask_dir):
+    img_dir = os.path.join(mask_dir, 'masks')
+    filenames, imgs = read_data_cube(img_dir, return_names=True)
     
-    # check if we started matching...
-    if os.path.exists(out_dir):
-        # print("  outdir exists:", outdir)
-        json_files = sorted([f
-                for f in os.listdir(os.path.join(json_dir))
-                if f.endswith('.geojson') and os.path.exists(os.path.join(json_dir, f))])
-        out_files_tmp = sorted([z for z in os.listdir(out_dir) if z.endswith('.geojson')])
-        if len(out_files_tmp) > 0:
-            if len(out_files_tmp) == len(json_files):
-                print("Dir:", os.path.basename(out_dir), "N files:", len(json_files), 
-                      "directory matching completed, skipping...")
+    # Saving directory
+    out_dir = os.path.join(mask_dir, 'tracked_geojson')
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Saving 
+    for filename, img in zip(filenames, imgs):
+        # Get geojson
+        file_path = os.path.join(out_dir, filename)[:-4] + '.geojson'
+        # Save to geojson
+        img = img.astype('int32')
+        sol.vector.mask.label_to_poly_geojson(img, output_path=file_path, 
+                                                connectivity=4, min_area=3.5)
+
+with concurrent.futures.ProcessPoolExecutor() as executor:
+    results = []
+    for mask_dir in listdirfull(masks_dir):
+        results.append(executor.submit(dir_to_poly, mask_dir))
+    
+    for f in tqdm(concurrent.futures.as_completed(results)):
+        pass #print(f.result())
+
+
+# Save submission
+def sn7_convert_geojsons_to_csv(json_dirs, output_csv_path, population='proposal'):
+    '''
+    Convert jsons to csv
+    Population is either "ground" or "proposal" 
+    '''
+    
+    first_file = True  # switch that will be turned off once we process the first file
+    for json_dir in tqdm(json_dirs):
+        json_files = sorted(glob.glob(os.path.join(json_dir, '*.geojson')))
+        for json_file in tqdm(json_files):
+            try:
+                df = gpd.read_file(json_file)
+            except (fiona.errors.DriverError):
+                message = '! Invalid dataframe for %s' % json_file
+                print(message)
                 continue
-            elif len(out_files_tmp) != len(json_files):
-                # raise Exception("Incomplete matching in:", out_dir, "with N =", len(out_files_tmp), 
-                #                 "files (should have N_gt =", 
-                #                 len(json_files), "), need to purge this folder and restart matching!")
-                print("Incomplete matching in:", out_dir, "with N =", len(out_files_tmp), 
-                                "files (should have N_gt =", 
-                                len(json_files), "), purging this folder and restarting matching!")
-                purge_cmd = 'rm -r ' + out_dir
-                print("  purge_cmd:", purge_cmd)
-                if len(out_dir) > 20:
-                    purge_cmd = 'rm -r ' + out_dir
-                else:
-                    raise Exception("out_dir too short, maybe deleting something unintentionally...")
-                    break
-                os.system(purge_cmd)
+                #raise Exception(message)
+            if population == 'ground':
+                file_name_col = df.image_fname.apply(lambda x: os.path.splitext(x)[0])
+            elif population == 'proposal':
+                file_name_col = os.path.splitext(os.path.basename(json_file))[0]
             else:
-                pass
+                raise Exception('! Invalid population')
 
-    params.append([track_footprint_identifiers, json_dir,  out_dir, min_iou, 
-                   iou_field, id_field, reverse_order, verbose, super_verbose])    
+            df = df.sort_values('area', ascending=False)
+            df = df.drop_duplicates('Id')
 
-print("Len params:", len(params))
+            df = gpd.GeoDataFrame({
+                'filename': file_name_col,
+                'id': df.Id.astype(int),
+                'geometry': df.geometry,
+            })
+            if len(df) == 0:
+                message = '! Empty dataframe for %s' % json_file
+                print(message)
+                #raise Exception(message)
+            
+            if first_file:
+                net_df = df
+                first_file = False
+            else:
+                net_df = net_df.append(df)
+    
+    
+            
+    net_df.to_csv(output_csv_path, index=False)
+    return net_df
 
-print("Execute!")
-n_threads = 10
-pool = multiprocessing.Pool(n_threads)
-_ = pool.map(map_wrapper, params)
-
-# Make proposal csv
 
 out_csv_path = sys.argv[1]
 prop_file = out_csv_path
@@ -134,9 +121,9 @@ final_out_dir = '/'.join(prop_file.split('/')[:-1])
 if final_out_dir != '':
     os.makedirs(final_out_dir, exist_ok=True)
 
-aoi_dirs = sorted([os.path.join(pred_top_dir, 'grouped', aoi, 'pred_jsons_match') \
-                   for aoi in os.listdir(os.path.join(pred_top_dir, 'grouped')) \
-                   if os.path.isdir(os.path.join(pred_top_dir, 'grouped', aoi, 'pred_jsons_match'))])
+aoi_dirs = sorted([os.path.join(masks_dir, aoi, 'tracked_geojson') \
+                   for aoi in os.listdir(os.path.join(masks_dir)) \
+                   if os.path.isdir(os.path.join(masks_dir, aoi, 'tracked_geojson'))])
 print("aoi_dirs:", aoi_dirs)
 
 net_df = sn7_convert_geojsons_to_csv(aoi_dirs, prop_file, 'proposal')
