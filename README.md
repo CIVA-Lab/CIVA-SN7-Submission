@@ -1,3 +1,6 @@
+# SpaceNet 7: CIVA Lab Submission
+This repository contains the SN7 submission made by CUVA Lab (Dept. Electrical Engineering and Computer Science). This repo follows TopCoder's marathon-docker-template for "data" plus "code" contests.
+
 # marathon-docker-template for "data" plus "code" contests
 Template submission format for participating in Topcoder Marathon Matches.
 Information in the challenge specification always overrides information in this document.
